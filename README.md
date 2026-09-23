@@ -28,6 +28,22 @@ loads `predictor.py` **in-process** instead — do not run `main.py` on the GPU 
 First boot downloads `google/siglip-so400m-patch14-384` and the aesthetic head
 weights into `MODEL_CACHE_DIR` (use a Docker volume in Swarm/Compose).
 
+## Docker / Portainer
+
+Pushes to GHCR on `main`, `v*` tags, or manual workflow dispatch
+(`.github/workflows/publish.yml`):
+
+```text
+ghcr.io/tomkentintera/nexus-aesthetic-server:latest
+ghcr.io/tomkentintera/nexus-aesthetic-server:sha-<short>
+ghcr.io/tomkentintera/nexus-aesthetic-server:vX.Y.Z   # tag pushes
+```
+
+Deploy with the included `docker-compose.yml` (Portainer stack or
+`docker compose up -d`). Persist `MODEL_CACHE_DIR` via the
+`aesthetic-predictor-models` volume. If the package is private, add a
+`ghcr.io` registry credential in Portainer (PAT with `read:packages`).
+
 ## Local
 
 ```bash

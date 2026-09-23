@@ -1,0 +1,44 @@
+# Portainer / Swarm stack for aesthetic-predictor-server.
+# Image: ghcr.io/<owner>/nexus-aesthetic-server (published by .github/workflows/publish.yml)
+#
+# Portainer: Stacks → Add stack → paste this file (or pull from Git).
+# If the GHCR package is private, add a registry credential for ghcr.io first.
+
+services:
+  aesthetic-predictor-server:
+    image: ghcr.io/tomkentintera/nexus-aesthetic-server:latest
+    environment:
+      SERVER_HOST: "0.0.0.0"
+      SERVER_PORT: "5050"
+      MODEL_CACHE_DIR: /usr/src/app/models
+      HF_HOME: /usr/src/app/models/hf
+      TRANSFORMERS_CACHE: /usr/src/app/models/hf
+      DEVICE: ${AESTHETIC_PREDICTOR_DEVICE:-cpu}
+      SKIP_AUTO_DOWNLOAD: ${AESTHETIC_PREDICTOR_SKIP_AUTO_DOWNLOAD:-false}
+    volumes:
+      - aesthetic-predictor-models:/usr/src/app/models
+    # Internal overlay only by default — Laravel reaches it via stack DNS.
+    # Uncomment to expose on the host for debugging:
+    # ports:
+    #   - "5050:5050"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5050/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      # First boot downloads SigLIP + aesthetic head into the volume.
+      start_period: 600s
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        limits:
+          memory: ${AESTHETIC_PREDICTOR_MEMORY_LIMIT:-6G}
+        reservations:
+          memory: ${AESTHETIC_PREDICTOR_MEMORY_RESERVATION:-2G}
+
+volumes:
+  aesthetic-predictor-models:
