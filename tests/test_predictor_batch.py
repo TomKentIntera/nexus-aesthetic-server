@@ -69,3 +69,15 @@ def test_score_image_batch_requires_loaded_model(monkeypatch: pytest.MonkeyPatch
 
     with pytest.raises(RuntimeError):
         predictor.score_image_batch([_png_bytes((1, 2, 3))])
+
+
+def test_decode_for_embedding_flattens_alpha_onto_white_and_downscales():
+    import predictor
+
+    buf = io.BytesIO()
+    Image.new("RGBA", (2000, 1000), color=(0, 0, 0, 0)).save(buf, format="PNG")
+    image = predictor.decode_for_embedding(buf.getvalue())
+
+    assert image.mode == "RGB"
+    assert max(image.size) == predictor.EMBED_MAX_SIDE
+    assert image.getpixel((0, 0)) == (255, 255, 255)
