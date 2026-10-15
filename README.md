@@ -13,7 +13,12 @@ loads `predictor.py` **in-process** instead — do not run `main.py` on the GPU 
 | Method | Path | Body | Response |
 | --- | --- | --- | --- |
 | `POST` | `/upload` | multipart `file` | `{ "score": 6.42, "device": "cpu" }` |
+| `POST` | `/upload/batch` | multipart `files` (repeated) | `{ "scores": [6.42, 5.91], "device": "cpu" }` |
+| `POST` | `/embed` | multipart `file` | `{ "siglip": "<base64 LE float32>", "dims": 1152, "model": "google/siglip-so400m-patch14-384" }` — L2-normalised SigLIP vector, decoded exactly as `python/image-embeddings` does, for images that are not posts (Emaki rating model Danbooru anchors) |
 | `GET` | `/health` | — | `{ "status": "ok"\|"starting", "device", "dtype", "error" }` |
+
+Uploads score on the FastAPI threadpool, so `/health` stays responsive (sub-second)
+while a CPU inference is in flight.
 
 ## Configuration
 

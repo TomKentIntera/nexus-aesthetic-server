@@ -8,7 +8,7 @@ and does not run this FastAPI server.
 
 ## Structure
 
-- `main.py` — FastAPI app, `/upload` + `/health`, entrypoint for Swarm.
+- `main.py` — FastAPI app, `/upload`, `/upload/batch`, `/embed` (SigLIP vector) + `/health`, entrypoint for Swarm.
 - `predictor.py` — model load + `score_image_bytes`; shared with `python/aesthetic-score`.
 - `requirements.txt` — fastapi, torch (installed CPU-first in Dockerfile), transformers, aesthetic-predictor-v2-5.
 - `Dockerfile` — CPU torch wheels; models cached under `MODEL_CACHE_DIR` volume.

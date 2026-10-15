@@ -174,6 +174,61 @@ def score_image_batch(images_bytes: list[bytes]) -> list[float]:
     return [float(score) for score in scores]
 
 
+def siglip_embed_images(images: list[Any]) -> tuple[Any, list[float]]:
+    """SigLIP image embeddings (and aesthetic scores) for already-decoded RGB PIL images.
+
+    The aesthetic head reads the vision tower's pooled output; the model returns that
+    vector as `hidden_states`, so the embedding costs nothing beyond the scoring pass.
+    Returns an ``(n, 1152)`` float32 array of L2-normalised vectors plus the scores.
+    """
+    if _model is None or _preprocessor is None or _device is None or _dtype is None:
+        raise RuntimeError(_load_error or "model not loaded")
+
+    pixel_values = (
+        _preprocessor(images=images, return_tensors="pt")
+        .pixel_values.to(device=_device, dtype=_dtype)
+    )
+
+    with torch.inference_mode():
+        output = _model(pixel_values)
+        embeds = torch.nn.functional.normalize(output.hidden_states.float(), dim=-1)
+        scores = output.logits.squeeze(-1).float().cpu().numpy()
+
+    return embeds.cpu().numpy(), [float(score) for score in scores]
+
+
+# python/image-embeddings decodes this way before embedding (DEFAULT_MAX_SIDE); /embed matches it
+# so vectors for images that are not posts land in the same space as post_image_embeddings.
+EMBED_MAX_SIDE = 768
+
+
+def decode_for_embedding(image_bytes: bytes) -> Any:
+    """Flatten alpha onto white and downscale to EMBED_MAX_SIDE, as python/image-embeddings does."""
+    from PIL import Image
+
+    image = Image.open(io.BytesIO(image_bytes))
+    image.draft("RGB", (EMBED_MAX_SIDE, EMBED_MAX_SIDE))
+    if image.mode in ("RGBA", "LA") or (image.mode == "P" and "transparency" in image.info):
+        rgba = image.convert("RGBA")
+        background = Image.new("RGB", rgba.size, (255, 255, 255))
+        background.paste(rgba, mask=rgba.getchannel("A"))
+        image = background
+    else:
+        image = image.convert("RGB")
+    image.thumbnail((EMBED_MAX_SIDE, EMBED_MAX_SIDE))
+    return image
+
+
+def embed_image_bytes(image_bytes: bytes) -> list[float]:
+    """L2-normalised SigLIP vector for raw image bytes (ValueError when they don't decode)."""
+    try:
+        image = decode_for_embedding(image_bytes)
+    except Exception as exc:  # noqa: BLE001 - any decode failure is the caller's bad input
+        raise ValueError(f"cannot decode image: {exc}") from exc
+    vectors, _scores = siglip_embed_images([image])
+    return [float(v) for v in vectors[0]]
+
+
 def health_payload() -> dict[str, Any]:
     ready = _model is not None and _preprocessor is not None
     return {
